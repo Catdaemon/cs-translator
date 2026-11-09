@@ -1,0 +1,99 @@
+[
+  {
+    "file": "sherpa-onnx-LICENSE",
+    "url": "https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/af2d8d81dbfa61c4cea4c568da78f3982edca005/LICENSE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "file": "onnxruntime-LICENSE",
+    "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/a83fc4d58cb48eb68890dd689f94f28288cf2278/LICENSE",
+    "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+  },
+  {
+    "file": "onnxruntime-ThirdPartyNotices.txt",
+    "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/a83fc4d58cb48eb68890dd689f94f28288cf2278/ThirdPartyNotices.txt",
+    "sha256": "e9e90971a8e75a9a8ac0c6412e29c1202d079998389915aa485f46c816c3b4cc"
+  },
+  {
+    "file": "fairseq-LICENSE",
+    "url": "https://raw.githubusercontent.com/facebookresearch/fairseq/3d262bb25690e4eb2e7d3c1309b1e9c406ca4b99/LICENSE",
+    "sha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
+  },
+  {
+    "file": "PaddleOCR-LICENSE",
+    "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/95dc316a8490a350c1d1fcf3bc80bf83d4e52450/LICENSE",
+    "sha256": "3840c5c0c61c294264d2dd77b8777be6ddd90121ef4e0e64abcd22edea581d6e"
+  },
+  {
+    "file": "oar-ocr-LICENSE",
+    "url": "https://raw.githubusercontent.com/GreatV/oar-ocr/7a0ea9cbe5de7d9e4c8415b032f4854fb688245e/LICENSE",
+    "sha256": "8a7ec3e5de8c98ead49da38ca820edb995102e95093da040b304413e37b6c607"
+  },
+  {
+    "file": "spdx-text-CC-BY-SA-3.0.txt",
+    "url": "https://raw.githubusercontent.com/spdx/license-list-data/d46e94e2c78ceede1cfc63cfa0396472d2798d4c/text/CC-BY-SA-3.0.txt",
+    "sha256": "3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f"
+  },
+  {
+    "file": "Nemotron-model-card.txt",
+    "url": "https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b/raw/ea30d66debe3740a08b573244286791d423d6b3e/README.md",
+    "sha256": "a3344caadf796c084c6b90a9fa5978068fd45e3a019790bebe50489bb3c0f7b7"
+  },
+  {
+    "file": "OpenMDW-1.1.txt",
+    "url": "https://openmdw.ai/license/1-1/",
+    "sha256": "6cbef5be9e6939c37ac6368ec9587dc2df80913a032e38d8dbfe44de011cb8ff",
+    "retrieved": "2026-11-06",
+    "note": "License version 1.1; text extracted verbatim from HTML."
+  },
+  {
+    "file": "kaldi-native-fbank-LICENSE",
+    "url": "https://raw.githubusercontent.com/csukuangfj/kaldi-native-fbank/018d7bc92c3d4ac1a44c8c0e5c7d5c8e489ca509/LICENSE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "file": "kaldifst-LICENSE",
+    "url": "https://raw.githubusercontent.com/k2-fsa/kaldifst/3bd58c1b30be21f1c4d01f106c50b7bcc9e9395e/LICENSE",
+    "sha256": "a682d6efd1ee5dee08a8e405c233c2c198ea70ae0718129daa83ab58cfe31c5d"
+  },
+  {
+    "file": "kaldi-decoder-LICENSE",
+    "url": "https://raw.githubusercontent.com/k2-fsa/kaldi-decoder/8cd2c8cfbed48f8fe94f7ddd57f1c36080681db3/LICENSE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "file": "kissfft-COPYING",
+    "url": "https://raw.githubusercontent.com/mborgerding/kissfft/f3fd3a58f1b98972d0f06a1db775a984198cb788/COPYING",
+    "sha256": "a2840585f8411be8e6826a31ef15ae65c950bd74a2437a73b013398a934ad0c6"
+  },
+  {
+    "file": "utf8proc-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/JuliaStrings/utf8proc/f72a4023617e2d879f2ca93086fd02bc7e3149fe/LICENSE.md",
+    "sha256": "3b510150d34f248a221bb88e1d811238d6c6c18b51231822c42974c39bb07256"
+  },
+  {
+    "file": "sentencepiece-LICENSE",
+    "url": "https://raw.githubusercontent.com/google/sentencepiece/eafd99cf3b8bfa5101c2c5f42aab2cc39947938d/LICENSE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "file": "kissfft-BSD-3-Clause.txt",
+    "url": "https://raw.githubusercontent.com/mborgerding/kissfft/f3fd3a58f1b98972d0f06a1db775a984198cb788/LICENSES/BSD-3-Clause",
+    "sha256": "4d6bcab46f27d6d0c878e8305d4bdcfe040d52bf6656b9771f04c9fb9902c0ed"
+  },
+  {
+    "file": "OpenFST-COPYING.txt",
+    "url": "https://raw.githubusercontent.com/mjansche/openfst/5be570c4e84a5eae1325d8c6c43fdbba3683863e/COPYING",
+    "sha256": "dd0c6c9378a98b6a0e96b559b285c8506434fe2691eeeef151e8a8c1c492778e"
+  },
+  {
+    "file": "onnxruntime-1.28.2-LICENSE",
+    "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/33ca9628233dc8f002435e868d4c2e9f82766ca1/LICENSE",
+    "sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c"
+  },
+  {
+    "file": "onnxruntime-1.28.2-ThirdPartyNotices.txt",
+    "url": "https://raw.githubusercontent.com/microsoft/onnxruntime/33ca9628233dc8f002435e868d4c2e9f82766ca1/ThirdPartyNotices.txt",
+    "sha256": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2"
+  }
+]

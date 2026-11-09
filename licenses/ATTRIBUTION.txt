@@ -1,0 +1,118 @@
+CS Translator — third-party attribution and redistribution information
+
+This distribution contains separately licensed application and native-runtime
+components plus metadata for optional first-run model acquisition. Model weights
+are not bundled. This notice is not legal advice or a legal guarantee. Retain the
+component license texts, copyright notices and provenance when redistributing.
+No endorsement by NVIDIA, Meta, Microsoft or Valve is implied.
+
+NEMOTRON ASR
+NVIDIA nemotron-3.5-asr-streaming-0.6b; selected sherpa-onnx INT8 conversion:
+sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11.
+Checkpoint: https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b
+Conversion: https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models
+Terms: OpenMDW License Agreement version 1.1, https://openmdw.ai/license/1-1/
+The license grants redistribution subject to retaining the agreement and all
+applicable copyright and origin notices. The license has a litigation-termination
+clause and disclaimers; see the complete text. Acquisition metadata identifies the
+upstream checkpoint and conversion. The app downloads selected upstream INT8 ONNX
+files without modifying their contents.
+
+M2M100 TRANSLATION
+Copyright (c) Facebook, Inc. and its affiliates. MIT License.
+Base model: https://huggingface.co/facebook/m2m100_418M
+Primary code/license: https://github.com/facebookresearch/fairseq
+INT8 conversion: https://huggingface.co/auralmira/m2m100-418M-ct2-int8
+Pinned conversion revision: e205afefce2fd6933a1dca3b92b5063894f2f2bb
+The upstream converter's README states that weights and sentencepiece vocabulary
+come from the MIT-licensed Meta model. Preserve the MIT copyright and permission
+notice. First-run acquisition installs the unchanged upstream INT8 conversion.
+
+FASTTEXT LANGUAGE IDENTIFICATION WEIGHTS (not the software license)
+Meta/Facebook fastText team; lid.176.ftz, compressed 176-language identification.
+https://fasttext.cc/docs/en/language-identification.html
+https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz
+Creative Commons Attribution-ShareAlike 3.0 Unported:
+https://creativecommons.org/licenses/by-sa/3.0/
+The app downloads the unmodified compressed weights as a separate component.
+Give credit, retain the license/URI and notices, indicate changes if any, and
+license adaptations of this component under CC-BY-SA-3.0 (or an allowed compatible
+license). Do not apply additional restrictions or technical measures that prevent
+license rights. A collection does not relicense independent components under CC-BY-SA.
+Training sources credited upstream: Wikipedia, Tatoeba and SETimes, under CC-BY-SA.
+References: Armand Joulin, Edouard Grave, Piotr Bojanowski, Tomas Mikolov,
+Bag of Tricks for Efficient Text Classification (2016), arXiv:1607.01759;
+Armand Joulin, Edouard Grave, Piotr Bojanowski, Matthijs Douze, Herve Jegou,
+Tomas Mikolov, FastText.zip: Compressing text classification models (2016),
+arXiv:1612.03651. CS Translator makes no changes to lid.176.ftz.
+
+LANGUAGE PICKER FLAG ARTWORK
+flag-icons v7.6.0, Copyright (c) 2013 Panayiotis Lipiridis.
+https://github.com/lipis/flag-icons/tree/v7.6.0
+MIT License; the complete upstream license is in licenses/flag-icons-MIT.txt.
+Selected SVGs are embedded with intrinsic dimensions changed to 24x18.
+Flags identify representative regions, not a language's exclusive nationality.
+
+GPUI KIT USER INTERFACE AND BUNDLED ICON ARTWORK
+GPUI Kit, GPUI Component, GPUI Base and GPUI Kit Assets 0.9.0:
+https://github.com/longbridge/gpui-kit
+Apache-2.0 for the Rust software. GPUI pre-release platform crates 0.3.11:
+https://github.com/zed-industries/zed
+Apache-2.0; Cargo manifests identify upstream Zed revision
+f816e1f9263e3a8ef63c4baaa02e1441ce1c6038 where supplied.
+The bundled Lucide icon artwork has separate terms, retained in
+licenses/dependencies/gpui-kit-assets-0.9.0/LICENSE-LUCIDE:
+ISC License, Copyright (c) 2026 Lucide Icons and Contributors;
+the listed Feather-derived icons are MIT-licensed,
+Copyright (c) 2013-present Cole Bemis. Retain both notices and permission texts.
+Kit's native default icon bundle is embedded in the executable; no external Kit
+asset directory or icon network download is required on Windows. The normal
+dependency notice collection retains the crate license files and records exact
+resolved package versions, source identities and declared licenses.
+
+NATIVE SOFTWARE
+sherpa-onnx and Kaldi-derived components: Apache-2.0; ONNX Runtime: MIT,
+including its ThirdPartyNotices.txt. OpenFST, kaldi-native-fbank, kaldi-decoder,
+kaldifst, SentencePiece, utf8proc and KISS FFT retain their own included terms.
+CTranslate2 (MIT), oneDNN (Apache-2.0), SentencePiece (Apache-2.0), fastText
+software (MIT), and vendored native dependencies are statically linked where
+selected by the Cargo build. licenses/dependencies/ retains available upstream
+copyright, LICENSE, COPYING and NOTICE files recursively from resolved Cargo
+sources, including native third_party subdirectories. dependencies.json records
+exact Cargo versions/source identities and declared license expressions. Cargo.lock
+is included for source provenance. Standard SPDX license texts are pinned to the
+license-list-data revision recorded by the packager. Additional pinned upstream
+license sources and their SHA256 values appear in licenses/sources.json; auxiliary
+notice-source revisions are not a claim that those revisions were compiled.
+
+DIAGNOSTIC OCR (not included in this distribution)
+OCR requires separately acquired assets and the user's own calibrated configuration.
+The developer acquisition script references PaddlePaddle/PaddleOCR and GreatV/oar-ocr
+v0.3.0 (Apache-2.0) and ONNX Runtime 1.23.2 (MIT plus third-party notices).
+https://github.com/PaddlePaddle/PaddleOCR
+https://github.com/GreatV/oar-ocr/releases/tag/v0.3.0
+No OCR models, runtime, calibration or speaker-icon crop are packaged.
+
+MICROSOFT WINDOWS / VISUAL C++ RUNTIME
+Windows system components are NOT redistributed. Install the official Microsoft
+Visual C++ v14 x64 Redistributable, at least as recent as the compiler used for
+this build. VCOMP140.DLL is an observed direct dependency of the application.
+https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist
+https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files
+https://aka.ms/vc14/vc_redist.x64.exe
+Microsoft says redistribution is permitted only to licensed Visual Studio users
+under their applicable terms. The default bundle therefore does NOT copy runtime
+DLLs from System32/SDKs. The release pipeline acquires the checksum-approved,
+Microsoft-signed installer and includes it for offline installation by the end
+user. Redistribution remains subject to the maintainer's applicable Microsoft
+terms; no licensing entitlement is inferred. CS Translator never runs this
+installer or downloads a system runtime during normal use.
+
+ACTUAL PAYLOAD PROVENANCE
+provenance/payload.json lists each shipped file's SHA256 and byte size, selected
+model acquisition URLs/revisions/digests and inspected normal/delay PE imports.
+No model weights or acquisition archives are shipped or consulted by the packager.
+model-manifests/catalog.json records pinned first-run transfer URLs, sizes,
+SHA256 values, source revisions and model license metadata.
+The app downloads models only after an explicit user action and installs them
+beside the executable. All packaged asset paths are executable-adjacent and portable.

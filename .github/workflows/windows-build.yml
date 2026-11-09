@@ -1,0 +1,101 @@
+name: Windows x64 build
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Exact source commit; empty uses the caller checkout default.
+        required: false
+        default: ''
+        type: string
+    outputs:
+      artifact-id:
+        description: Immutable artifact ID from this run.
+        value: ${{ jobs.windows.outputs.artifact-id }}
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      CARGO_TERM_COLOR: always
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.11'
+          architecture: x64
+      - name: Install repository Rust toolchain
+        run: |
+          $toolchain = python -c "import json, pathlib, tomllib; print(json.dumps(tomllib.loads(pathlib.Path('rust-toolchain.toml').read_text(encoding='utf-8'))['toolchain']))" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot read repository Rust toolchain.' }
+          $arguments = @('toolchain', 'install', $toolchain.channel, '--profile', $toolchain.profile)
+          foreach ($component in $toolchain.components) { $arguments += @('--component', $component) }
+          foreach ($target in $toolchain.targets) { $arguments += @('--target', $target) }
+          & rustup @arguments
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Rust toolchain installation failed.' }
+      - name: Reuse Rust dependency build cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: ${{ hashFiles('model-manifests/native-tools.json') }}
+          save-if: ${{ github.event_name == 'push' && github.ref_type == 'branch' }}
+      - name: Install pinned Python build tools
+        run: python -m pip install cmake==4.4.4 ruff==0.14.4
+      - name: Verify Python automation
+        run: |
+          python -m ruff check .github
+          if ($LASTEXITCODE -ne 0) { throw 'Python lint failed.' }
+          python -m unittest discover -s .github -p 'test_*.py'
+          if ($LASTEXITCODE -ne 0) { throw 'Python behavior tests failed.' }
+      - name: Prepare checksum-verified native dependencies
+        run: python .github/release.py --prepare-native --github-env "$env:GITHUB_ENV"
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+      - name: Lint every Rust target
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Test Rust workspace
+        run: cargo test --workspace --locked
+      - name: Build production workspace
+        run: cargo build --workspace --release --locked
+      - name: Assemble portable Windows application
+        run: python .github/release.py --destination dist/cs-translator-windows-x64 --build-directory target/release --vc-redist "$env:CS_TRANSLATOR_VC_REDIST"
+      - name: Verify release archive and calculate SHA256
+        shell: python {0}
+        run: |
+          import hashlib
+          import pathlib
+          import zipfile
+
+          archive = pathlib.Path('dist/cs-translator-windows-x64.zip')
+          with zipfile.ZipFile(archive) as package:
+              corrupt = package.testzip()
+              if corrupt is not None:
+                  raise SystemExit(f'Corrupt release archive member: {corrupt}')
+          with archive.open('rb') as source:
+              digest = hashlib.file_digest(source, 'sha256').hexdigest()
+          archive.with_suffix('.zip.sha256').write_text(
+              f'{digest}  {archive.name}\n', encoding='ascii', newline='\n'
+          )
+      - name: Upload only release assets
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cs-translator-windows-x64
+          path: |
+            dist/cs-translator-windows-x64.zip
+            dist/cs-translator-windows-x64.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

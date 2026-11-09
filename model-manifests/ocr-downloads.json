@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "asset_release": "GreatV/oar-ocr v0.3.0",
+  "license": "Apache-2.0",
+  "files": [
+    {
+      "path": "pp-ocrv5_mobile_rec.onnx",
+      "url": "https://github.com/GreatV/oar-ocr/releases/download/v0.3.0/pp-ocrv5_mobile_rec.onnx",
+      "bytes": 16562373,
+      "sha256": "243a0f06d826761323e9045e9b113ab2c191c3aa50565585e628300b8eda0224"
+    },
+    {
+      "path": "ppocrv5_dict.txt",
+      "url": "https://github.com/GreatV/oar-ocr/releases/download/v0.3.0/ppocrv5_dict.txt",
+      "bytes": 74012,
+      "sha256": "d1979e9f794c464c0d2e0b70a7fe14dd978e9dc644c0e71f14158cdf8342af1b"
+    },
+    {
+      "path": "cyrillic_pp-ocrv5_mobile_rec.onnx",
+      "url": "https://github.com/GreatV/oar-ocr/releases/download/v0.3.0/cyrillic_pp-ocrv5_mobile_rec.onnx",
+      "bytes": 8076390,
+      "sha256": "a18d96d7c8d73d90f2ed056549caa1de3a8e6cb744cccba16cd593ea8cd2d569"
+    },
+    {
+      "path": "ppocrv5_cyrillic_dict.txt",
+      "url": "https://github.com/GreatV/oar-ocr/releases/download/v0.3.0/ppocrv5_cyrillic_dict.txt",
+      "bytes": 2781,
+      "sha256": "db40aa52ceb112055be80c694afdf655d5d2c4f7873704524cc16a447ca913ba"
+    },
+    {
+      "path": "PaddleOCR-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/95dc316a8490a350c1d1fcf3bc80bf83d4e52450/LICENSE",
+      "bytes": 11376,
+      "sha256": "3840c5c0c61c294264d2dd77b8777be6ddd90121ef4e0e64abcd22edea581d6e"
+    },
+    {
+      "path": "oar-ocr-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/GreatV/oar-ocr/7a0ea9cbe5de7d9e4c8415b032f4854fb688245e/LICENSE",
+      "bytes": 11347,
+      "sha256": "8a7ec3e5de8c98ead49da38ca820edb995102e95093da040b304413e37b6c607"
+    }
+  ],
+  "runtime": {
+    "version": "1.23.2",
+    "archive": {
+      "path": "onnxruntime-win-x64-1.23.2.zip",
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-win-x64-1.23.2.zip",
+      "bytes": 78127794,
+      "sha256": "0b38df9af21834e41e73d602d90db5cb06dbd1ca618948b8f1d66d607ac9f3cd"
+    },
+    "files": [
+      {
+        "path": "onnxruntime-ocr.dll",
+        "member": "onnxruntime-win-x64-1.23.2/lib/onnxruntime.dll",
+        "bytes": 14186016,
+        "sha256": "dec964ab1ee36cc9b0ae247d13b376627992fc57dec0454354017ab8fd84f1ea"
+      },
+      {
+        "path": "ONNXRUNTIME-LICENSE.txt",
+        "member": "onnxruntime-win-x64-1.23.2/LICENSE",
+        "bytes": 1094,
+        "sha256": "c250d6278f0b47a6439fb7592b08b58a55eb9f535aa49a1db63211c3f982b674"
+      },
+      {
+        "path": "ONNXRUNTIME-ThirdPartyNotices.txt",
+        "member": "onnxruntime-win-x64-1.23.2/ThirdPartyNotices.txt",
+        "bytes": 333022,
+        "sha256": "e00f828e0a33de591a355ae6606d2625f5758da7d2c844db7821c9dd3e3647b6"
+      }
+    ]
+  }
+}

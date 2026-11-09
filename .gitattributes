@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+# Preserve upstream notice bytes: their SHA-256 hashes are pinned.
+/licenses/** -text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary

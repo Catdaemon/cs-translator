@@ -1,0 +1,10 @@
+name = "nemotron-multilingual"
+engine = "nemotron"
+max_phrase_seconds = 8.0
+silence_seconds = 0.5
+
+[files]
+encoder = "../models/sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11/encoder.int8.onnx"
+decoder = "../models/sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11/decoder.int8.onnx"
+joiner = "../models/sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11/joiner.int8.onnx"
+tokens = "../models/sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11/tokens.txt"

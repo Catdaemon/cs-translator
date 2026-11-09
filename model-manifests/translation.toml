@@ -1,0 +1,4 @@
+architecture = "m2m100"
+sentencepiece = "sentencepiece.bpe.model"
+vocabulary = "shared_vocabulary.json"
+language_identification = "lid.176.ftz"

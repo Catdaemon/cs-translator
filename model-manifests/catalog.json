@@ -1,0 +1,84 @@
+{
+  "schema_version": 2,
+  "default_asr": "nemotron-multilingual",
+  "asr": [
+    {
+      "id": "nemotron-multilingual",
+      "engine": "nemotron",
+      "directory": "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11.tar.bz2",
+      "bytes": 475271763,
+      "license": "OpenMDW-1.1",
+      "license_url": "https://openmdw.ai/license/1-1/",
+      "checkpoint": "https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b",
+      "files": {
+        "encoder": "encoder.int8.onnx",
+        "decoder": "decoder.int8.onnx",
+        "joiner": "joiner.int8.onnx",
+        "tokens": "tokens.txt"
+      },
+      "sha256": "c6bf5e0df765f9d5b43bc9e0536d4b4b3e7d40bdf5ecf13e45f134c51c05ae3a",
+      "artifacts": [
+        {
+          "path": "encoder.int8.onnx",
+          "bytes": 657601403,
+          "sha256": "012e9321373af99021415e0b0eb3ec827b4be3153be6f30d9b448fe65e896e68"
+        },
+        {
+          "path": "decoder.int8.onnx",
+          "bytes": 14978075,
+          "sha256": "19f9c98fc6d0a2c33a65a43b36fdb2e914c26c0aa9764be3aebc502a1e982fb0"
+        },
+        {
+          "path": "joiner.int8.onnx",
+          "bytes": 9504438,
+          "sha256": "4101c7c679a0bc30483794b27a059e34e79232aa2068d78d51231a22c8b0d7ce"
+        },
+        {
+          "path": "tokens.txt",
+          "bytes": 131440,
+          "sha256": "729cc103155bafa785f9cd45746cd41cabe97eab7182fc04d594129587958f8a"
+        }
+      ]
+    }
+  ],
+  "language_identification": {
+    "file": "lid.176.ftz",
+    "url": "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz",
+    "bytes": 938013,
+    "license": "CC-BY-SA-3.0",
+    "sha256": "8f3472cfe8738a7b6099e8e999c3cbfae0dcd15696aac7d7738a8039db603e83"
+  },
+  "translation": {
+    "id": "m2m100-int8",
+    "repo": "auralmira/m2m100-418M-ct2-int8",
+    "revision": "e205afefce2fd6933a1dca3b92b5063894f2f2bb",
+    "license": "MIT",
+    "files": [
+      {
+        "path": "model.bin",
+        "bytes": 490667752,
+        "sha256": "137949450f9cf691f3c92084f14123e82d05ecb23ac3cd688308ce1a95214572",
+        "url": "https://huggingface.co/auralmira/m2m100-418M-ct2-int8/resolve/e205afefce2fd6933a1dca3b92b5063894f2f2bb/model.bin"
+      },
+      {
+        "path": "config.json",
+        "bytes": 223,
+        "sha256": "8f6496adfc930cbfecbe8281112197705c488fab47d34b4829b06d7f478909af",
+        "url": "https://huggingface.co/auralmira/m2m100-418M-ct2-int8/resolve/e205afefce2fd6933a1dca3b92b5063894f2f2bb/config.json"
+      },
+      {
+        "path": "sentencepiece.bpe.model",
+        "bytes": 2423393,
+        "sha256": "d8f7c76ed2a5e0822be39f0a4f95a55eb19c78f4593ce609e2edbc2aea4d380a",
+        "url": "https://huggingface.co/auralmira/m2m100-418M-ct2-int8/resolve/e205afefce2fd6933a1dca3b92b5063894f2f2bb/sentencepiece.bpe.model"
+      },
+      {
+        "path": "shared_vocabulary.json",
+        "bytes": 2796509,
+        "sha256": "7eb5d0ff184c6095c7c10f9911c0aea492250abd12854f9c3d787c64b1c6397e",
+        "url": "https://huggingface.co/auralmira/m2m100-418M-ct2-int8/resolve/e205afefce2fd6933a1dca3b92b5063894f2f2bb/shared_vocabulary.json"
+      }
+    ]
+  }
+}

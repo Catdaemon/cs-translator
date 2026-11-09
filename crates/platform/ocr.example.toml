@@ -1,0 +1,39 @@
+# Copy beside explicitly downloaded model files; paths are relative to this file.
+# Source: https://github.com/GreatV/oar-ocr/releases/tag/v0.3.0
+# PaddleOCR weights/dictionaries and OAR: Apache-2.0.
+# Native CPU runtime (MIT): https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-win-x64-1.23.2.zip
+# Copy lib/onnxruntime.dll as onnxruntime-ocr.dll to avoid the ASR runtime DLL.
+# The standard speaking glyph is built in; no screenshot or saved geometry is required.
+# Local Steam active-account HUD settings are search hints, not voice evidence.
+# No matches means no players; there is deliberately no generic-text fallback.
+runtime = "onnxruntime-ocr.dll"
+speaker_icon = ""
+icon_threshold = 0.91
+# The following scale/offset/band apply only to an explicit custom icon.
+icon_scale = 1.0
+# Distance from speaker icon left edge to name, in icon heights (skips avatar).
+name_offset_icon_heights = 3.6
+# Optional hard field width in icon heights. Zero uses 14 for the standard glyph;
+# explicit custom templates retain the visible field when this is zero.
+name_width_icon_heights = 0.0
+# CS2's spaced " @ " separates name/location. Disable if this HUD uses it inside names:
+# without independent layout evidence those two interpretations are ambiguous.
+strip_location_field = true
+# Speaker glyph left-edge search band in pixels relative to the cropped ROI.
+# Diagnostic custom-icon bounds only; standard detection tracks confirmed columns.
+icon_band_left = 0
+icon_band_right = 64
+# Icon-aligned rows go directly to native recognition; no detector model is used.
+# Cached row pixels skip recognition when only unrelated HUD/world pixels change.
+threads = 2
+minimum_confidence = 0.55
+capture_interval_ms = 125
+upscale = 2
+
+[[recognizers]]
+model = "pp-ocrv5_mobile_rec.onnx"
+dictionary = "ppocrv5_dict.txt"
+
+[[recognizers]]
+model = "cyrillic_pp-ocrv5_mobile_rec.onnx"
+dictionary = "ppocrv5_cyrillic_dict.txt"

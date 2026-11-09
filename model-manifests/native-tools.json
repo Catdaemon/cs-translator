@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "sherpa": {
+    "version": "2.0.1",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-v2.0.1-win-x64-shared-MT-Release-lib.tar.bz2",
+    "archive": "sherpa-onnx-v2.0.1-win-x64-shared-MT-Release-lib.tar.bz2",
+    "sha256": "afa4de3ca4ab0afd53bb4aab40d28ee15608364b549ffc0fe0caf6489bfc39a5",
+    "files": [
+      {
+        "path": "lib/onnxruntime.dll",
+        "sha256": "7f66f939a881baf4f46a2216496798edf4a1429878b646d12674aa62f27d8a25"
+      },
+      {
+        "path": "lib/onnxruntime.lib",
+        "sha256": "b9fc3cd678257d88a111b0773ede4bfceaf0fe95daab4379f2b2b37348a68781"
+      },
+      {
+        "path": "lib/onnxruntime_providers_shared.dll",
+        "sha256": "551d0e1fe4c227d8542314ba718d52f4379e0c7bfe729a37c59833a884e27b4d"
+      },
+      {
+        "path": "lib/sherpa-onnx-c-api.dll",
+        "sha256": "0965a6e4c0254da2beff489cf7a8aaffaf7dc94f90b43b3e66448b8cab4177ea"
+      },
+      {
+        "path": "lib/sherpa-onnx-c-api.lib",
+        "sha256": "edf4b780d0ab4f0320d210f9cfc7e96e01d9b0dbee7234746f6cb6b422065997"
+      },
+      {
+        "path": "lib/sherpa-onnx-cxx-api.dll",
+        "sha256": "ada772889f966426ad9caba5b5125bffb836163573791fdda99541280d45dafa"
+      },
+      {
+        "path": "lib/sherpa-onnx-cxx-api.lib",
+        "sha256": "59cada86d1e41621404d11b66e93d0a46e436d8926dc3178cc74949fa6f3d0bb"
+      }
+    ]
+  },
+  "vc_redist": {
+    "version": "14.44.35211.0",
+    "url": "https://download.visualstudio.microsoft.com/download/pr/990c720a-46ce-4dc7-87b9-c2eb615d34b9/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe",
+    "sha256": "cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b",
+    "product": "Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.44.35211",
+    "signer_thumbprint": "8F985BE8FD256085C90A95D3C74580511A1DB975",
+    "architecture": "x64",
+    "minimum_runtime": "14.44.35211.0"
+  }
+}

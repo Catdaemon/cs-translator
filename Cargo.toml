@@ -1,0 +1,39 @@
+[workspace]
+members = ["crates/core", "crates/inference", "crates/platform", "crates/desktop"]
+default-members = ["crates/desktop"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+[workspace.dependencies]
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.9"
+crossbeam-channel = "0.5"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+hound = "3.5"
+clap = { version = "4.5", features = ["derive"] }
+cs-core = { path = "crates/core" }
+cs-inference = { path = "crates/inference" }
+cs-platform = { path = "crates/platform" }
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+[profile.dev]
+debug = 1
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"
