@@ -62,6 +62,6 @@ Third-party licenses, model terms, and package provenance are included with the 
 
 ## Releases
 
-GitHub Actions verifies Windows builds on branch pushes and pull requests. To publish a release, push a version tag matching `workspace.package.version` in `Cargo.toml`, such as `v0.1.0`. The release workflow can also be run manually for an existing version tag.
+GitHub Actions verifies Windows builds on branch pushes and pull requests. To publish a release, push a version tag matching `workspace.package.version` in `Cargo.toml`, such as `v0.1.1`. The release workflow can also be run manually for an existing version tag.
 
-Each release includes the Windows x64 ZIP and its SHA-256 checksum. The bundled Microsoft Visual C++ installer is hash- and signature-verified before packaging. Model weights are downloaded in the app, not bundled in releases.
+Each release includes the Windows x64 ZIP and its SHA-256 checksum. The bundled Microsoft Visual C++ installer is hash- and signature-verified before packaging. Tests and packaging use the verified native runtimes independently of cached build outputs. Model weights are downloaded in the app, not bundled in releases.

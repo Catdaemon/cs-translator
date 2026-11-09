@@ -61,6 +61,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Python behavior tests failed.' }
       - name: Prepare checksum-verified native dependencies
         run: python .github/release.py --prepare-native --github-env "$env:GITHUB_ENV"
+      - name: Make verified native runtime DLLs discoverable
+        run: Add-Content -LiteralPath "$env:GITHUB_PATH" -Value "$env:SHERPA_ONNX_LIB_DIR"
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
       - name: Lint every Rust target
@@ -68,7 +70,12 @@ jobs:
       - name: Test Rust workspace
         run: cargo test --workspace --locked
       - name: Build production workspace
-        run: cargo build --workspace --release --locked
+        run: |
+          cargo build --workspace --release --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
+          # Cached build scripts may not re-copy runtime DLLs into the output.
+          Get-ChildItem -LiteralPath "$env:SHERPA_ONNX_LIB_DIR" -Filter '*.dll' -File |
+            Copy-Item -Destination target/release -Force
       - name: Assemble portable Windows application
         run: python .github/release.py --destination dist/cs-translator-windows-x64 --build-directory target/release --vc-redist "$env:CS_TRANSLATOR_VC_REDIST"
       - name: Verify release archive and calculate SHA256

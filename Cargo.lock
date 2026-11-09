@@ -1418,7 +1418,7 @@ dependencies = [
 
 [[package]]
 name = "cs-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "serde",
@@ -1428,7 +1428,7 @@ dependencies = [
 
 [[package]]
 name = "cs-desktop"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "bzip2 0.5.2",
@@ -1454,7 +1454,7 @@ dependencies = [
 
 [[package]]
 name = "cs-inference"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "cs-core",
@@ -1471,7 +1471,7 @@ dependencies = [
 
 [[package]]
 name = "cs-platform"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
