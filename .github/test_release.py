@@ -1,8 +1,9 @@
-"""Behavioral coverage for native cache repair and untrusted tar boundaries."""
+"""Behavioral coverage for native verification, cache repair, and untrusted archives."""
 
 import hashlib
 import importlib.util
 import io
+import os
 import tarfile
 import tempfile
 import unittest
@@ -104,6 +105,41 @@ class NativePreparationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
                 release.acquire_file(destination, pin)
         self.assertEqual(destination.read_bytes(), b"previous archive")
+
+
+@unittest.skipUnless(os.name == "nt", "Windows PowerShell required")
+class WindowsVerificationTests(unittest.TestCase):
+    def test_core_module_path_cannot_shadow_windows_signature_verification(self):
+        with tempfile.TemporaryDirectory(prefix="VC vérification ' ") as directory:
+            root = Path(directory)
+            module = root / "Modules/Microsoft.PowerShell.Security"
+            module.mkdir(parents=True)
+            (module / "Microsoft.PowerShell.Security.psd1").write_text(
+                "@{ModuleVersion='1.0';PowerShellVersion='99.0';"
+                "RootModule='Security.psm1';"
+                "FunctionsToExport=@('Get-AuthenticodeSignature')}",
+                encoding="utf-8",
+            )
+            (module / "Security.psm1").write_text(
+                "function Get-AuthenticodeSignature { throw 'Incompatible module' }",
+                encoding="utf-8",
+            )
+            unsigned = root / "unsigned.ps1"
+            unsigned.write_text("'Unsigned verification fixture'", encoding="utf-8")
+            quoted = str(unsigned).replace("'", "''")
+            with patch.dict(os.environ, {"PSModulePath": str(module.parent)}):
+                status = release.windows_powershell(
+                    f"[string](Get-AuthenticodeSignature -LiteralPath '{quoted}').Status"
+                )
+            self.assertEqual(status.strip(), "NotSigned")
+
+    def test_command_failure_stops_before_success_output_and_preserves_diagnostic(self):
+        with tempfile.TemporaryDirectory() as directory:
+            missing = str(Path(directory) / "missing-verification-input").replace("'", "''")
+            with self.assertRaisesRegex(ValueError, "missing-verification-input"):
+                release.windows_powershell(
+                    f"Get-Item -LiteralPath '{missing}'; 'misleading success'"
+                )
 
 
 if __name__ == "__main__":

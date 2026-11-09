@@ -454,6 +454,28 @@ def verify_build(build):
     return embedded
 
 
+def windows_powershell(command):
+    # A pwsh -> Python -> powershell chain otherwise inherits Core-only modules.
+    environment = {key: value for key, value in os.environ.items()
+                   if key.upper() != "PSMODULEPATH"}
+    executable = (
+        Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+    )
+    script = (
+        "$ErrorActionPreference='Stop'; "
+        "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); "
+        + command
+    )
+    try:
+        return subprocess.check_output(
+            [str(executable), "-NoProfile", "-NonInteractive", "-Command", script],
+            env=environment, text=True, encoding="utf-8", stderr=subprocess.PIPE, timeout=60,
+        )
+    except subprocess.CalledProcessError as error:
+        detail = (error.stderr or error.output or str(error)).strip()
+        raise ValueError(f"Windows PowerShell verification failed: {detail}") from error
+
+
 def verify_vc_redist(installer):
     pin = json.loads(
         (ROOT / "model-manifests/native-tools.json").read_text(encoding="utf-8-sig")
@@ -468,8 +490,7 @@ def verify_vc_redist(installer):
         "thumbprint=$s.SignerCertificate.Thumbprint;product=$v.ProductName;"
         "version=$v.ProductVersion}|ConvertTo-Json -Compress"
     )
-    actual = json.loads(subprocess.check_output(
-        ["powershell", "-NoProfile", "-Command", command], text=True))
+    actual = json.loads(windows_powershell(command))
     if (actual["status"] != "Valid" or "O=Microsoft Corporation" not in actual["subject"]
             or actual["thumbprint"].lower() != pin["signer_thumbprint"].lower()
             or actual["product"] != pin["product"] or actual["version"] != pin["version"]
@@ -628,9 +649,7 @@ def assemble(args, stage):
         copy(build / name, stage / name)
     runtime_path = str(build / "onnxruntime.dll").replace("'", "''")
     version_command = f"(Get-Item -LiteralPath '{runtime_path}').VersionInfo.ProductVersion"
-    runtime_version = subprocess.check_output(
-        ["powershell", "-NoProfile", "-Command", version_command], text=True
-    ).strip()
+    runtime_version = windows_powershell(version_command).strip()
     if runtime_version != "1.28.2":
         raise ValueError(
             f"ASR ONNX Runtime {runtime_version!r} is not covered by pinned 1.28.2 notices; "
