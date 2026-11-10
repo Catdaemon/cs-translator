@@ -20,7 +20,7 @@ fn short_speech_survives_live_rate_gaps_and_rate_changes() -> anyhow::Result<()>
         PathBuf::from(std::env::var_os("CS_TRANSLATOR_TEST_AUDIO").expect("48 kHz fixture"));
     let (audio, rate) = read_wav(&audio_path)?;
     assert_eq!(rate, 48000, "Exercise the actual live-capture sample rate");
-    let mut asr = SpeechRecognizer::load(&manifest, 2, "auto")?;
+    let mut asr = SpeechRecognizer::load(&manifest, 2, "auto", false)?;
     let mut finals = Vec::new();
     let mut cursor_ms = 0;
     for segment in 0..3 {
@@ -74,6 +74,45 @@ fn short_speech_survives_live_rate_gaps_and_rate_changes() -> anyhow::Result<()>
 }
 
 #[test]
+#[ignore = "Requires CS_TRANSLATOR_TEST_ASR and CS_TRANSLATOR_TEST_AUDIO (48 kHz 'Behind you')"]
+fn beam_search_preserves_short_callout_and_media_bounds() -> anyhow::Result<()> {
+    let manifest = PathBuf::from(std::env::var_os("CS_TRANSLATOR_TEST_ASR").expect("ASR manifest"));
+    let audio_path =
+        PathBuf::from(std::env::var_os("CS_TRANSLATOR_TEST_AUDIO").expect("48 kHz fixture"));
+    let (audio, rate) = read_wav(&audio_path)?;
+    let duration_ms = audio.len() as u64 * 1000 / u64::from(rate);
+    let mut asr = SpeechRecognizer::load(&manifest, 2, "auto", true)?;
+    let mut finals = Vec::new();
+    let length = rate as usize / 100;
+    for (index, samples) in audio.chunks(length).enumerate() {
+        finals.extend(
+            asr.push(&AudioChunk {
+                samples: samples.to_vec(),
+                sample_rate: rate,
+                timestamp_ms: (index * length) as u64 * 1000 / u64::from(rate),
+                discontinuity: false,
+            })?
+            .into_iter()
+            .filter(|result| result.is_final),
+        );
+    }
+    finals.extend(asr.finish()?.into_iter().filter(|result| result.is_final));
+    assert_eq!(
+        finals
+            .iter()
+            .map(|r| canonical(&r.text))
+            .collect::<Vec<_>>(),
+        ["behindyou"]
+    );
+    assert!(
+        finals
+            .iter()
+            .all(|r| r.start_ms < r.end_ms && r.end_ms <= duration_ms)
+    );
+    Ok(())
+}
+
+#[test]
 #[ignore = "Requires CS_TRANSLATOR_TEST_BOUNDARY_ASR (1-second Nemotron limit) and CS_TRANSLATOR_TEST_AUDIO (subsecond 48 kHz 'Behind you')"]
 fn phrase_limit_does_not_discard_buffered_callout_tail() -> anyhow::Result<()> {
     let manifest = PathBuf::from(
@@ -91,7 +130,7 @@ fn phrase_limit_does_not_discard_buffered_callout_tail() -> anyhow::Result<()> {
     prefixed.append(&mut audio);
     prefixed.resize(prefixed.len() + rate as usize * 6 / 10, 0.0);
     audio = prefixed;
-    let mut asr = SpeechRecognizer::load(&manifest, 2, "auto")?;
+    let mut asr = SpeechRecognizer::load(&manifest, 2, "auto", false)?;
     let mut finals = Vec::new();
     let length = rate as usize / 100;
     for (index, chunk) in audio.chunks(length).enumerate() {
@@ -155,7 +194,7 @@ fn native_silence_setting_changes_endpoint_without_absorbing_leading_idle() -> a
         let mut configured = tempfile::NamedTempFile::new()?;
         configured.write_all(toml::to_string(&template)?.as_bytes())?;
         configured.flush()?;
-        let mut asr = SpeechRecognizer::load(configured.path(), 2, "auto")?;
+        let mut asr = SpeechRecognizer::load(configured.path(), 2, "auto", false)?;
         let mut finals = Vec::new();
         let length = rate as usize / 100;
         for (index, samples) in waveform.chunks(length).enumerate() {
@@ -197,7 +236,7 @@ fn empty_markers_do_not_select_offline_input_rate() -> anyhow::Result<()> {
     let manifest = PathBuf::from(
         std::env::var_os("CS_TRANSLATOR_TEST_OFFLINE_ASR").expect("offline ASR manifest"),
     );
-    let mut asr = SpeechRecognizer::load(&manifest, 2, "auto")?;
+    let mut asr = SpeechRecognizer::load(&manifest, 2, "auto", false)?;
     assert!(
         asr.push(&AudioChunk {
             samples: Vec::new(),

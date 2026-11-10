@@ -22,7 +22,7 @@ Live voice and text translation for Counter-Strike 2, powered by tiny AI models 
 - Show or hide original text and message labels and adjust caption font size.
 - Tune the overlay's position, text size, transparency, and message lifetime.
 - Optionally add speaker-name labels to voice captions.
-- Set CPU inference threads, background priority, translation decoding, and partial-update frequency.
+- Set CPU inference threads, background priority, optional speech beam search, translation decoding, and partial-update frequency.
 - Preview caption and overlay styling directly in Settings.
 
 ## Local AI models
@@ -54,6 +54,10 @@ Models are downloaded separately (but automatically) from the app and stored in 
 
 Speech capture receives CS2's mixed audio output, not an isolated voice-chat channel. Noise, accents, short callouts, and overlapping voices can affect recognition. Player labels can be missed or misread. Overlay visibility over exclusive fullscreen is not possible.
 
+**Recognition tuning:** enable **Settings → Performance → Speech beam search** to consider four speech hypotheses instead of greedy decoding. It uses more CPU and is off by default.
+
+**Short messages:** automatic language identification can be uncertain for isolated words, abbreviations, and shared gaming terms. Use the caption's language icon to choose a language for a player when needed.
+
 Performance may be a problem depending on your system. I have tested this on my AMD 9800X3D and see no visible performance impact, but these processes are relatively heavy, so lower-spec systems may suffer. YMMV.
 
 There should be no anti-cheat concerns: The app uses console logs, documented Windows capture APIs (like OBS etc. would), and an independent desktop window. No game injection, game-memory access, graphics/input hooks, or Trusted Mode changes.
@@ -62,6 +66,6 @@ Third-party licenses, model terms, and package provenance are included with the 
 
 ## Releases
 
-GitHub Actions verifies Windows builds on branch pushes and pull requests. To publish a release, push a version tag matching `workspace.package.version` in `Cargo.toml`, such as `v0.1.1`. The release workflow can also be run manually for an existing version tag.
+GitHub Actions verifies Windows builds on branch pushes and pull requests. To publish a release, push a version tag matching `workspace.package.version` in `Cargo.toml`, such as `v0.1.2`. The release workflow can also be run manually for an existing version tag.
 
 Each release includes the Windows x64 ZIP and its SHA-256 checksum. The bundled Microsoft Visual C++ installer is hash- and signature-verified before packaging. Tests and packaging use the verified native runtimes independently of cached build outputs. Model weights are downloaded in the app, not bundled in releases.

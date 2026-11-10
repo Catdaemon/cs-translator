@@ -30,7 +30,7 @@ enum Control {
 #[derive(Serialize, Deserialize)]
 enum Message {
     Event(AppEvent),
-    Drops([u64; 4]),
+    Diagnostics([u64; 5]),
     Finished(Option<String>),
 }
 
@@ -59,12 +59,13 @@ fn read_frame<T: DeserializeOwned>(reader: &mut impl Read, bytes: &mut Vec<u8>) 
         .context("reading session IPC frame body")?;
     serde_json::from_slice(bytes).context("decoding session IPC frame")
 }
-fn counters(d: &CaptureDiagnostics) -> [&std::sync::atomic::AtomicU64; 4] {
+fn counters(d: &CaptureDiagnostics) -> [&std::sync::atomic::AtomicU64; 5] {
     [
         &d.audio_packets_dropped,
         &d.hud_observations_dropped,
         &d.chat_messages_dropped,
         &d.status_messages_dropped,
+        &d.hud_frames_coalesced,
     ]
 }
 
@@ -173,7 +174,7 @@ pub(crate) fn run_parent(
                         forward_caption(tx, event, &stop);
                     }
                 }
-                Ok(Ok(Message::Drops(delta))) => {
+                Ok(Ok(Message::Diagnostics(delta))) => {
                     for (counter, delta) in counters(&diagnostics).into_iter().zip(delta) {
                         counter.fetch_add(delta, Ordering::Relaxed);
                     }
@@ -254,7 +255,7 @@ pub(crate) fn run_child() -> Result<()> {
         )
     });
     let mut output = std::io::stdout().lock();
-    let mut previous = [0_u64; 4];
+    let mut previous = [0_u64; 5];
     let mut frame = Vec::new();
     let transport = (|| -> Result<()> {
         loop {
@@ -263,9 +264,9 @@ pub(crate) fn run_child() -> Result<()> {
                 Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
                 Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
             }
-            report_drops(&diagnostics, &mut previous, &mut output, &mut frame)?;
+            report_diagnostics(&diagnostics, &mut previous, &mut output, &mut frame)?;
         }
-        report_drops(&diagnostics, &mut previous, &mut output, &mut frame)
+        report_diagnostics(&diagnostics, &mut previous, &mut output, &mut frame)
     })();
     if transport.is_err() {
         stop.store(true, Ordering::Relaxed);
@@ -282,20 +283,20 @@ pub(crate) fn run_child() -> Result<()> {
     )
 }
 
-fn report_drops(
+fn report_diagnostics(
     diagnostics: &CaptureDiagnostics,
-    previous: &mut [u64; 4],
+    previous: &mut [u64; 5],
     output: &mut impl Write,
     frame: &mut Vec<u8>,
 ) -> Result<()> {
-    let mut delta = [0; 4];
+    let mut delta = [0; 5];
     for (i, counter) in counters(diagnostics).into_iter().enumerate() {
         let current = counter.load(Ordering::Relaxed);
         delta[i] = current.saturating_sub(previous[i]);
         previous[i] = current;
     }
-    if delta != [0; 4] {
-        write_frame(output, &Message::Drops(delta), frame)?;
+    if delta != [0; 5] {
+        write_frame(output, &Message::Diagnostics(delta), frame)?;
     }
     Ok(())
 }

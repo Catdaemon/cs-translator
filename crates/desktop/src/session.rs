@@ -28,7 +28,7 @@ pub enum SessionOutcome {
 #[derive(Debug)]
 pub struct SessionCompletion {
     pub outcome: SessionOutcome,
-    pub diagnostics: [u64; 4],
+    pub diagnostics: [u64; 5],
 }
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct TranslationPolicy {
@@ -95,12 +95,13 @@ impl Drop for Session {
 }
 pub type ShutdownWorkers = Arc<Mutex<Vec<(Arc<AtomicBool>, thread::JoinHandle<()>)>>>;
 #[cfg(test)]
-pub(crate) fn diagnostic_counts(d: &CaptureDiagnostics) -> [u64; 4] {
+pub(crate) fn diagnostic_counts(d: &CaptureDiagnostics) -> [u64; 5] {
     [
         &d.audio_packets_dropped,
         &d.hud_observations_dropped,
         &d.chat_messages_dropped,
         &d.status_messages_dropped,
+        &d.hud_frames_coalesced,
     ]
     .map(|c| c.load(Ordering::Relaxed))
 }
@@ -135,6 +136,7 @@ pub fn start(
             &d.hud_observations_dropped,
             &d.chat_messages_dropped,
             &d.status_messages_dropped,
+            &d.hud_frames_coalesced,
         ]
         .map(|counter| counter.swap(0, Ordering::Relaxed));
         *c.lock().unwrap() = Some(SessionCompletion {
@@ -668,6 +670,7 @@ pub(crate) fn run_local(
                 &config.asr_manifest,
                 config.threads,
                 &config.source_language,
+                config.speech_beam_search,
             )
             .context("Load installed speech recognition model")?,
         )

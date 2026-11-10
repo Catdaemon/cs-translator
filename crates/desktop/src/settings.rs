@@ -429,12 +429,26 @@ impl Desktop {
                 .description("Sample overlay over a two-tone background to show transparency.")
                 .keywords(["preview", "sample", "overlay", "opacity", "appearance"])
                 .layout(Axis::Vertical)));
+        let diagnostics_desktop = cx.weak_entity();
         let performance = SettingPage::new("Performance").resettable(false).group(SettingGroup::new()
             .item(Self::settings_number("CPU threads", "CPU thread limit for speech recognition and translation, from 1 to 16. Lower values leave more CPU capacity for the game.",
                 NumberFieldOptions { min: 1., max: 16., step: 1. }, |c| c.threads as f64,
                 |c, v| c.threads = v.round().clamp(1., 16.) as _, Self::inference_changed, cx).keywords(["cpu", "threads", "cores", "performance", "processor"]))
+            .item(self.settings_toggle("Speech beam search", "Consider four speech hypotheses instead of greedy decoding. Uses more CPU; recognition improvements depend on the audio.", &["speech", "recognition", "accuracy", "beam", "decoder"],
+                |c| c.speech_beam_search, |this, value, cx| { this.config.speech_beam_search = value; this.inference_changed(cx); }, cx))
             .item(self.settings_toggle("Background inference priority", "Run speech recognition and translation at Below Normal CPU priority to favor the game. Off uses normal priority.", &["priority", "background", "scheduling", "latency", "performance"],
-                |c| c.background_inference, |this, value, cx| { this.config.background_inference = value; this.inference_changed(cx); }, cx)));
+                |c| c.background_inference, |this, value, cx| { this.config.background_inference = value; this.inference_changed(cx); }, cx))
+            .item(SettingItem::new("Capture diagnostics", SettingField::render(move |_, _, cx| {
+                let Some(desktop) = diagnostics_desktop.upgrade() else {
+                    return div().into_any_element();
+                };
+                desktop.update(cx, |this, _| {
+                    let [audio, hud, chat, status, coalesced] = this.capture_totals;
+                    div().text_sm().text_color(rgb(0xbab6ab))
+                        .child(format!("Audio packets lost: {audio} · Speaker observations lost: {hud} · Speaker frames replaced: {coalesced} · Chat messages lost: {chat} · Diagnostics lost: {status}"))
+                        .into_any_element()
+                })
+            })).keywords(["capture", "diagnostics", "drops", "HUD", "frames", "audio"]).layout(Axis::Vertical)));
         let speakers = SettingPage::new("Speaker detection").resettable(false).group(
             SettingGroup::new()
                 .item(self.settings_toggle(
@@ -535,6 +549,16 @@ impl Desktop {
     pub(super) fn settings_errors(&self, mut content: Div, cx: &Context<Self>) -> Div {
         if let Some(error) = &self.asset_error {
             content = content.child(Alert::error("asset-error", error.clone()));
+        }
+        if let Some((message, error)) = &self.capture_notice {
+            content = content.child(if *error {
+                Alert::error("capture-loss", message.clone())
+            } else {
+                Alert::warning("capture-loss", message.clone())
+            });
+        }
+        if let Some(message) = &self.capture_border_warning {
+            content = content.child(Alert::warning("capture-border", message.clone()));
         }
         if let Some((error, true)) = &self.speaker_status {
             content = content.child(Alert::error("speaker-error", error.clone()));

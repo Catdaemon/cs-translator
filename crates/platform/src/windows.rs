@@ -2,7 +2,7 @@ use crate::{
     CaptureWindow, CaptureWorker, HudOcr, capture_worker, deliver, monotonic_ms, pause, status,
 };
 use anyhow::{Context as _, Result, ensure};
-use crossbeam_channel::Sender;
+use crossbeam_channel::{Receiver, Sender};
 use cs_core::{AudioChunk, CaptureDiagnostics, CaptureEvent, HudObservation, NormalizedRect};
 use std::{
     path::PathBuf,
@@ -241,6 +241,7 @@ fn audio_loop(
 struct FrameFlags {
     roi: NormalizedRect,
     frames: Sender<(image::RgbaImage, u64)>,
+    pending_frames: Receiver<(image::RgbaImage, u64)>,
     stop: Arc<AtomicBool>,
     interval_ms: u64,
     events: Sender<CaptureEvent>,
@@ -275,14 +276,6 @@ impl GraphicsCaptureApiHandler for HudCapture {
         if self.last_frame.elapsed().as_millis() < self.flags.interval_ms as u128 {
             return Ok(());
         }
-        if self.flags.frames.is_full() {
-            self.flags
-                .diagnostics
-                .hud_observations_dropped
-                .fetch_add(1, Ordering::Relaxed);
-            self.last_frame = Instant::now();
-            return Ok(());
-        }
         self.last_frame = Instant::now();
         let timestamp = frame_timestamp_ms(frame.timestamp()?.Duration)?;
         let (x, y, width, height) = self
@@ -293,13 +286,19 @@ impl GraphicsCaptureApiHandler for HudCapture {
         // buffer_crop issues a GPU region copy before staging/readback, not full-frame CPU cropping.
         let buffer = frame.buffer_crop(x, y, x + width, y + height)?;
         let bytes = buffer.as_nopadding_buffer(&mut self.scratch);
-        let image = image::RgbaImage::from_raw(width, height, bytes.to_vec())
-            .ok_or("Captured frame buffer has invalid dimensions")?;
-        let dropped = self.flags.frames.try_send((image, timestamp)).is_err();
-        if dropped {
+        // OCR owns at most one in-flight image and one pending image. Reuse
+        // the replaced image's allocation when OCR cannot keep up.
+        if replace_pending_frame(&self.flags.frames, &self.flags.pending_frames, |pending| {
+            let mut pixels = pending.map_or_else(Vec::new, |(image, _)| image.into_raw());
+            pixels.clear();
+            pixels.extend_from_slice(bytes);
+            let image = image::RgbaImage::from_raw(width, height, pixels)
+                .ok_or_else(|| anyhow::anyhow!("Captured frame buffer has invalid dimensions"))?;
+            Ok((image, timestamp))
+        })? {
             self.flags
                 .diagnostics
-                .hud_observations_dropped
+                .hud_frames_coalesced
                 .fetch_add(1, Ordering::Relaxed);
         }
         Ok(())
@@ -316,6 +315,89 @@ impl GraphicsCaptureApiHandler for HudCapture {
             true,
         );
         Ok(())
+    }
+}
+
+fn replace_pending_frame<T>(
+    sender: &Sender<T>,
+    receiver: &Receiver<T>,
+    next: impl FnOnce(Option<T>) -> Result<T>,
+) -> Result<bool> {
+    // There is one capture producer. Taking the pending value first permits
+    // buffer reuse; the OCR consumer may already have taken it.
+    let pending = receiver.try_recv().ok();
+    let replaced = pending.is_some();
+    sender
+        .try_send(next(pending)?)
+        .map_err(|_| anyhow::anyhow!("Publish latest HUD frame failed"))?;
+    Ok(replaced)
+}
+
+fn hud_border_settings(
+    tx: &Sender<CaptureEvent>,
+    diagnostics: &CaptureDiagnostics,
+    stop: &AtomicBool,
+) -> DrawBorderSettings {
+    use windows::{
+        Graphics::Capture::{GraphicsCaptureAccess, GraphicsCaptureAccessKind},
+        Security::Authorization::AppCapabilityAccess::AppCapabilityAccessStatus,
+    };
+    let request = (|| -> Result<()> {
+        if !windows_capture::graphics_capture_api::GraphicsCaptureApi::is_border_settings_supported(
+        )? {
+            anyhow::bail!(
+                "This Windows version does not support borderless Graphics Capture (build 20348+ required)"
+            );
+        }
+        let operation =
+            GraphicsCaptureAccess::RequestAccessAsync(GraphicsCaptureAccessKind::Borderless)?;
+        let started = Instant::now();
+        // WinRT AsyncStatus::Started is zero. Poll only on this HUD worker,
+        // never blocking UI/audio, and do not wait indefinitely on consent.
+        while operation.Status()?.0 == 0 {
+            if stop.load(Ordering::Relaxed) || started.elapsed() >= Duration::from_secs(5) {
+                operation
+                    .Cancel()
+                    .context("Cancel pending borderless capture consent")?;
+                anyhow::bail!(
+                    "Borderless capture consent was cancelled or timed out; restart Speaker detection to request access again"
+                );
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let access = operation.GetResults()?;
+        if access != AppCapabilityAccessStatus::Allowed {
+            anyhow::bail!(
+                "Windows denied borderless capture ({access:?}); check Windows capture privacy/policy permissions. Packaged apps also require graphicsCaptureWithoutBorder"
+            );
+        }
+        Ok(())
+    })();
+    match request {
+        Ok(()) => {
+            status(
+                tx,
+                diagnostics,
+                "hud-border",
+                "Windows permitted borderless capture; requesting no border for every session. Other capture apps or OS policy can still require a border",
+                false,
+            );
+            DrawBorderSettings::WithoutBorder
+        }
+        Err(error) => {
+            // Permission failure is not capture failure. Keep the permitted
+            // bordered session, and expose the actual denial/error to the UI.
+            status(
+                tx,
+                diagnostics,
+                "hud-border",
+                format!(
+                    "Borderless capture unavailable: {error:#}. Speaker detection continues with the Windows capture border"
+                ),
+                true,
+            );
+            DrawBorderSettings::Default
+        }
     }
 }
 
@@ -342,6 +424,15 @@ fn hud_loop(
     diagnostics: &Arc<CaptureDiagnostics>,
     ready: &Sender<std::result::Result<(), String>>,
 ) -> Result<()> {
+    use windows::Win32::System::WinRT::{RO_INIT_MULTITHREADED, RoInitialize, RoUninitialize};
+    unsafe { RoInitialize(RO_INIT_MULTITHREADED)? };
+    struct WinRtApartment;
+    impl Drop for WinRtApartment {
+        fn drop(&mut self) {
+            unsafe { RoUninitialize() };
+        }
+    }
+    let _apartment = WinRtApartment;
     let mut ocr = HudOcr::load(config)?;
     let hint = crate::discover_hud_layout_hint();
     ocr.set_layout_hint(hint);
@@ -365,6 +456,7 @@ fn hud_loop(
     let flags = FrameFlags {
         roi: ocr.region(),
         frames: frames.clone(),
+        pending_frames: receiver.clone(),
         stop: stop.clone(),
         interval_ms: ocr.capture_interval_ms(),
         events: tx.clone(),
@@ -377,10 +469,14 @@ fn hud_loop(
         } else {
             MinimumUpdateIntervalSettings::Default
         };
+    let border = hud_border_settings(tx, diagnostics, stop);
+    if stop.load(Ordering::Relaxed) {
+        return Ok(());
+    }
     let settings = Settings::new(
         target,
         CursorCaptureSettings::WithoutCursor,
-        DrawBorderSettings::Default,
+        border,
         SecondaryWindowSettings::Default,
         minimum_interval,
         DirtyRegionSettings::Default,
@@ -394,6 +490,22 @@ fn hud_loop(
     let mut initialized = false;
     let result = (|| -> Result<()> {
         while !stop.load(Ordering::Relaxed) {
+            if control
+                .as_ref()
+                .is_some_and(|session| session.is_finished())
+            {
+                control
+                    .take()
+                    .expect("owned capture session")
+                    .wait()
+                    .map_err(|error| anyhow::anyhow!("Windows Graphics Capture failed: {error}"))?;
+                anyhow::bail!(
+                    "{}",
+                    failures.try_recv().unwrap_or_else(|_| {
+                        "Windows capture ended unexpectedly; restart Speaker detection".into()
+                    })
+                );
+            }
             // A resized or idle WGC session can retain its old texture allocation
             // and stop delivering frames, so supervise source geometry here too.
             ensure!(target.is_valid(), "Captured window closed");
@@ -403,7 +515,11 @@ fn hud_loop(
                 let old = control.take().expect("owned capture session");
                 old.stop()
                     .map_err(|error| anyhow::anyhow!("Stop resized Windows capture: {error}"))?;
-                while receiver.try_recv().is_ok() {}
+                if receiver.try_recv().is_ok() {
+                    diagnostics
+                        .hud_frames_coalesced
+                        .fetch_add(1, Ordering::Relaxed);
+                }
                 if let Ok(error) = failures.try_recv() {
                     anyhow::bail!("{error}");
                 }
@@ -420,6 +536,7 @@ fn hud_loop(
                 let flags = FrameFlags {
                     roi: ocr.region(),
                     frames: frames.clone(),
+                    pending_frames: receiver.clone(),
                     stop: stop.clone(),
                     interval_ms: ocr.capture_interval_ms(),
                     events: tx.clone(),
@@ -429,9 +546,9 @@ fn hud_loop(
                 let settings = Settings::new(
                     target,
                     CursorCaptureSettings::WithoutCursor,
-                    DrawBorderSettings::Default,
+                    border,
                     SecondaryWindowSettings::Default,
-                    MinimumUpdateIntervalSettings::Default,
+                    minimum_interval,
                     DirtyRegionSettings::Default,
                     ColorFormat::Rgba8,
                     flags,
@@ -462,20 +579,7 @@ fn hud_loop(
                         break;
                     }
                 }
-                Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
-                    if control
-                        .as_ref()
-                        .is_some_and(|session| session.is_finished())
-                    {
-                        anyhow::bail!(
-                            "{}",
-                            failures.try_recv().unwrap_or_else(|_| {
-                                "Windows capture ended unexpectedly; restart Speaker detection"
-                                    .into()
-                            })
-                        );
-                    }
-                }
+                Err(crossbeam_channel::RecvTimeoutError::Timeout) => {}
                 Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
             }
         }
@@ -528,4 +632,25 @@ fn frame_timestamp_ms(system_relative_100ns: i64) -> Result<u64> {
             + (i128::from(system_relative_100ns) - i128::from(qpc_100ns)) / 10_000)
             .clamp(0, i128::from(u64::MAX)) as u64,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slow_ocr_keeps_only_latest_original_timestamp() {
+        let (sender, receiver) = crossbeam_channel::bounded(1);
+        assert!(!replace_pending_frame(&sender, &receiver, |_| Ok(("first", 100_u64))).unwrap());
+        let in_flight = receiver.recv().unwrap();
+        assert!(!replace_pending_frame(&sender, &receiver, |_| Ok(("pending", 200))).unwrap());
+        for timestamp in [300, 400, 500] {
+            assert!(
+                replace_pending_frame(&sender, &receiver, |_| Ok(("latest", timestamp))).unwrap()
+            );
+            assert_eq!(receiver.len(), 1);
+        }
+        assert_eq!(in_flight, ("first", 100));
+        assert_eq!(receiver.recv().unwrap(), ("latest", 500));
+    }
 }

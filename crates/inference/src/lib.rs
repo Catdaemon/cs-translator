@@ -60,7 +60,12 @@ pub struct SpeechRecognizer {
     final_end_ms: u64,
 }
 impl SpeechRecognizer {
-    pub fn load(manifest_path: &Path, threads: usize, language: &str) -> Result<Self> {
+    pub fn load(
+        manifest_path: &Path,
+        threads: usize,
+        language: &str,
+        beam_search: bool,
+    ) -> Result<Self> {
         ensure!(
             threads > 0 && threads <= i32::MAX as usize,
             "threads must be positive"
@@ -77,6 +82,10 @@ impl SpeechRecognizer {
         ensure!(
             m.silence_seconds.is_finite() && (0.1..=3.0).contains(&m.silence_seconds),
             "silence_seconds must be 0.1..3"
+        );
+        ensure!(
+            !beam_search || m.engine == "nemotron",
+            "Speech beam search requires the streaming Nemotron model"
         );
         if m.engine != "nemotron" {
             ensure!(
@@ -113,6 +122,15 @@ impl SpeechRecognizer {
             c.model_config.tokens = Some(file("tokens")?);
             c.model_config.num_threads = threads as i32;
             c.model_config.provider = Some("cpu".into());
+            c.decoding_method = Some(
+                if beam_search {
+                    "modified_beam_search"
+                } else {
+                    "greedy_search"
+                }
+                .into(),
+            );
+            c.max_active_paths = 4;
             c.enable_endpoint = true;
             c.rule2_min_trailing_silence = m.silence_seconds;
             // Rule 3 includes leading idle. Enforce the phrase limit below using

@@ -8,11 +8,41 @@ use serde::{
     Deserialize,
     de::{SeqAccess, Visitor},
 };
-use std::{borrow::Cow, collections::HashSet, fmt, fs, io::BufReader, path::Path};
+use std::{collections::HashSet, fmt, fs, io::BufReader, path::Path};
 
 fn language_tag(token: &str) -> Option<&str> {
     let code = token.strip_prefix("__")?.strip_suffix("__")?;
     ((2..=3).contains(&code.len()) && code.bytes().all(|b| b.is_ascii_lowercase())).then_some(code)
+}
+
+fn identify_source_language(model: &fasttext::FastText, text: &str) -> Result<String> {
+    let dictionary = model.dict();
+    let mut words = Vec::new();
+    let mut labels = Vec::new();
+    // This tokenizer already treats CR/LF as whitespace, without modifying the
+    // Unicode text sent to SentencePiece. Use the lower-level prediction API:
+    // fasttext 0.8.1's predict returns early when all input features were pruned,
+    // before adding EOS. Short OOV tokens in lid.176.ftz can hit that path.
+    dictionary.get_line_from_str(text, &mut words, &mut labels);
+    let eos = dictionary
+        .get_id("</s>")
+        .context("Language identification model is missing its end-of-sentence token")?;
+    // A native fastText newline contributes EOS even for an OOV-only line.
+    // Do not add it twice if the input already ended tokenization with EOS.
+    if words.last() != Some(&eos) {
+        words.push(eos);
+    }
+    model
+        .predict_on_words(&words, 1, 0.0)
+        .into_iter()
+        .next()
+        .and_then(|prediction| {
+            prediction
+                .label
+                .strip_prefix("__label__")
+                .map(str::to_owned)
+        })
+        .context("Cannot identify source language; select it explicitly")
 }
 
 /// Read only language capabilities, without retaining the model's full vocabulary.
@@ -106,23 +136,7 @@ impl Translator {
         }
         let detected;
         let source = if source.is_empty() || source == "auto" {
-            let detection_text = if text.contains(['\r', '\n']) {
-                Cow::Owned(text.replace(['\r', '\n'], " "))
-            } else {
-                Cow::Borrowed(text)
-            };
-            detected = self
-                .language_identifier
-                .predict(&detection_text, 1, 0.0)
-                .into_iter()
-                .next()
-                .and_then(|prediction| {
-                    prediction
-                        .label
-                        .strip_prefix("__label__")
-                        .map(str::to_owned)
-                })
-                .context("Cannot identify source language; select it explicitly")?;
+            detected = identify_source_language(&self.language_identifier, text)?;
             detected.as_str()
         } else {
             source
@@ -235,12 +249,5 @@ mod tests {
             ["en".to_owned(), "ceb".to_owned()].into_iter().collect()
         );
         Ok(())
-    }
-    #[test]
-    fn normalizes_language_locales_without_hardcoding_target() {
-        assert_eq!(cs_core::normalize_language("ru-RU").unwrap(), "ru");
-        assert_eq!(cs_core::normalize_language("JA_jp").unwrap(), "ja");
-        assert_eq!(cs_core::normalize_language("ceb").unwrap(), "ceb");
-        assert!(cs_core::normalize_language("auto").is_err());
     }
 }

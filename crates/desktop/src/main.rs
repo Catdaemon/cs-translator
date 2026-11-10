@@ -114,6 +114,9 @@ struct Desktop {
     downloads: Option<downloads::Manager>,
     managed_models: bool,
     speaker_status: Option<(String, bool)>,
+    capture_totals: [u64; 5],
+    capture_notice: Option<(String, bool)>,
+    capture_border_warning: Option<String>,
     preparing_assets: bool,
     first_run: bool,
     assets_ready: bool,
@@ -174,6 +177,22 @@ impl Desktop {
         if error {
             self.messages.push_front((text.into(), true));
             self.messages.truncate(12);
+        }
+    }
+
+    fn record_capture_diagnostics(&mut self, counts: [u64; 5]) {
+        for (total, count) in self.capture_totals.iter_mut().zip(counts) {
+            *total = total.saturating_add(count);
+        }
+        if counts[..4].iter().any(|count| *count != 0) {
+            let [audio, hud, chat, status, _] = self.capture_totals;
+            let mut text = format!(
+                "Capture data lost: audio packets {audio}, speaker observations {hud}, chat messages {chat}, diagnostic messages {status}."
+            );
+            if audio != 0 {
+                text.push_str(" Lost audio starts a separate speech interval.");
+            }
+            self.capture_notice = Some((text, audio != 0 || chat != 0));
         }
     }
 
@@ -268,6 +287,9 @@ impl Desktop {
         self.language_editor_player = None;
         self.language_editor_valid = false;
         self.speaker_status = None;
+        self.capture_totals = [0; 5];
+        self.capture_notice = None;
+        self.capture_border_warning = None;
         self.overlay_feed.update(cx, |messages, cx| {
             messages.clear();
             cx.notify();
@@ -544,13 +566,14 @@ impl Desktop {
                 &d.hud_observations_dropped,
                 &d.chat_messages_dropped,
                 &d.status_messages_dropped,
+                &d.hud_frames_coalesced,
             ]
             .map(|n| n.swap(0, Ordering::Relaxed))
         });
         if let Some(drops) = drops
             && drops.iter().any(|n| *n != 0)
         {
-            self.message(format!("Capture overload: dropped audio {}, HUD {}, chat {}, status {}. Speech gaps are kept separate.", drops[0], drops[1], drops[2], drops[3]), true);
+            self.record_capture_diagnostics(drops);
         }
         for _ in 0..64 {
             let Ok(event) = self.rx.try_recv() else {
@@ -595,11 +618,15 @@ impl Desktop {
                     message,
                     is_error,
                 } => {
-                    if component.eq_ignore_ascii_case("hud") || component == "Replay HUD" {
-                        self.speaker_status = Some((message.clone(), is_error));
-                    }
-                    if is_error {
-                        self.message(format!("{component} · {message}"), true);
+                    if component == "hud-border" {
+                        self.capture_border_warning = is_error.then_some(message);
+                    } else {
+                        if component.eq_ignore_ascii_case("hud") || component == "Replay HUD" {
+                            self.speaker_status = Some((message.clone(), is_error));
+                        }
+                        if is_error {
+                            self.message(format!("{component} · {message}"), true);
+                        }
                     }
                 }
                 AppEvent::Ready => {
@@ -613,10 +640,7 @@ impl Desktop {
         if self.rx.is_empty()
             && let Some(completion) = self.session.as_ref().and_then(|s| s.take_completion())
         {
-            let drops = completion.diagnostics;
-            if drops.iter().any(|count| *count != 0) {
-                self.message(format!("Capture overload: dropped audio {}, HUD {}, chat {}, status {}. Speech gaps are kept separate.", drops[0], drops[1], drops[2], drops[3]), true);
-            }
+            self.record_capture_diagnostics(completion.diagnostics);
             if let session::SessionOutcome::Failed(error) = completion.outcome {
                 self.desired_running = false;
                 self.message(error, true);
@@ -1354,6 +1378,9 @@ fn main() {
                             settings_pages: std::cell::OnceCell::new(),
                             downloads,
                             speaker_status: None,
+                            capture_totals: [0; 5],
+                            capture_notice: None,
+                            capture_border_warning: None,
                             managed_models: !explicit,
                             preparing_assets: false,
                             first_run,

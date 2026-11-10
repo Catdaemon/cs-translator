@@ -23,6 +23,8 @@ pub struct AudioChunk {
 pub struct CaptureDiagnostics {
     pub audio_packets_dropped: AtomicU64,
     pub hud_observations_dropped: AtomicU64,
+    /// Pending HUD frames replaced by newer captures before OCR; not lost audio.
+    pub hud_frames_coalesced: AtomicU64,
     pub chat_messages_dropped: AtomicU64,
     pub status_messages_dropped: AtomicU64,
 }
@@ -201,6 +203,7 @@ pub struct AppConfig {
     pub target_language: String,
     pub source_language: String,
     pub voice_enabled: bool,
+    pub speech_beam_search: bool,
     pub threads: usize,
     pub translation_beam_size: usize,
     pub partial_translation_interval_ms: u64,
@@ -233,6 +236,7 @@ impl Default for AppConfig {
             target_language: "en".into(),
             source_language: "auto".into(),
             voice_enabled: true,
+            speech_beam_search: false,
             threads: 2,
             translation_beam_size: 1,
             partial_translation_interval_ms: 1000,
