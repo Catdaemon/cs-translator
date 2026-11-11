@@ -56,12 +56,14 @@ pub(super) fn caption_message(caption: &Caption, config: &AppConfig) -> AnyEleme
                 .text_color(rgb(0xf1eee7))
                 .child(content),
         )
-        .when_some(caption.translation_error.as_ref(), |message, error| {
-            message.footer(MessageFooter::new().content_inset(false).child(
-                div().text_sm().text_color(rgb(0xe9a07f)).child(format!(
-                    "Translation failed: {error} · use the language icon to correct the source."
-                )),
-            ))
+        .when(caption.translation_error.is_some(), |message| {
+            message.footer(
+                MessageFooter::new()
+                    .content_inset(false)
+                    .text_sm()
+                    .text_color(rgb(0xe9a07f))
+                    .child("Untranslated"),
+            )
         })
         .when(config.show_original && has_translation, |message| {
             message.footer(
@@ -383,7 +385,7 @@ impl Desktop {
                 State::Verifying => "Verifying…",
                 State::Installing => "Installing…",
                 State::Ready => "Ready",
-                State::Error(error) => error,
+                State::Error(_) => "Download failed · retry",
             };
             let active = model.state.active();
             let can_toggle = !matches!(
@@ -491,7 +493,7 @@ impl Desktop {
             .flex()
             .flex_col()
             .gap_4()
-            .child(self.settings_errors(content, cx))
+            .child(self.recovery_actions(content, cx))
             .child(div().flex_1().min_h_0())
             .child(
                 div()

@@ -18,9 +18,9 @@ use windows::Win32::{
     UI::WindowsAndMessaging::{
         GWL_EXSTYLE, GWL_STYLE, GetClientRect, GetCursorPos, GetWindowLongPtrW,
         GetWindowThreadProcessId, HTCAPTION, HWND_TOPMOST, PostMessageW, SC_MOVE, SWP_FRAMECHANGED,
-        SWP_NOACTIVATE, SetWindowLongPtrW, SetWindowPos, WM_SYSCOMMAND, WS_BORDER, WS_CAPTION,
-        WS_DLGFRAME, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
-        WS_THICKFRAME,
+        SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos, WM_SYSCOMMAND,
+        WS_BORDER, WS_CAPTION, WS_DLGFRAME, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+        WS_EX_TRANSPARENT, WS_THICKFRAME,
     },
 };
 use windows_capture::{
@@ -84,6 +84,34 @@ pub fn make_overlay(window_handle: isize, click_through: bool, origin: (i32, i32
             client.right - client.left,
             client.bottom - client.top,
             SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        )?;
+    }
+    Ok(())
+}
+
+/// Resize our borderless overlay without reintroducing GPUI's cached frame insets.
+pub fn resize_overlay(window_handle: isize, width: i32) -> Result<()> {
+    ensure!(width > 0, "Overlay width must be positive");
+    let hwnd = HWND(window_handle as *mut std::ffi::c_void);
+    let mut process_id = 0;
+    unsafe {
+        GetWindowThreadProcessId(hwnd, Some(&mut process_id));
+    }
+    ensure!(
+        process_id == std::process::id(),
+        "Only this application's overlay can be resized"
+    );
+    unsafe {
+        let mut client = RECT::default();
+        GetClientRect(hwnd, &mut client)?;
+        SetWindowPos(
+            hwnd,
+            None,
+            0,
+            0,
+            width,
+            client.bottom - client.top,
+            SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER,
         )?;
     }
     Ok(())
@@ -637,6 +665,59 @@ fn frame_timestamp_ms(system_relative_100ns: i64) -> Result<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn overlay_resizing_preserves_borderless_height_and_position() -> Result<()> {
+        use windows::Win32::UI::WindowsAndMessaging::{
+            CreateWindowExW, DestroyWindow, GetWindowRect, WINDOW_EX_STYLE, WS_POPUP,
+        };
+
+        struct TestWindow(HWND);
+        impl Drop for TestWindow {
+            fn drop(&mut self) {
+                unsafe {
+                    let _ = DestroyWindow(self.0);
+                }
+            }
+        }
+
+        let window = TestWindow(unsafe {
+            CreateWindowExW(
+                WINDOW_EX_STYLE::default(),
+                windows::core::w!("STATIC"),
+                windows::core::w!("Overlay geometry regression"),
+                WS_POPUP | WS_BORDER,
+                17,
+                23,
+                560,
+                150,
+                None,
+                None,
+                None,
+                None,
+            )?
+        });
+        make_overlay(window.0.0 as isize, true, (17, 23))?;
+        let mut initial = RECT::default();
+        unsafe {
+            GetWindowRect(window.0, &mut initial)?;
+        }
+
+        for width in [320, 240, 1600, 320] {
+            resize_overlay(window.0.0 as isize, width)?;
+            let (mut bounds, mut client) = (RECT::default(), RECT::default());
+            unsafe {
+                GetWindowRect(window.0, &mut bounds)?;
+                GetClientRect(window.0, &mut client)?;
+            }
+            assert_eq!(bounds.right - bounds.left, width);
+            assert_eq!(client.right - client.left, width);
+            assert_eq!(bounds.bottom - bounds.top, initial.bottom - initial.top);
+            assert_eq!(client.bottom - client.top, initial.bottom - initial.top);
+            assert_eq!((bounds.left, bounds.top), (initial.left, initial.top));
+        }
+        Ok(())
+    }
 
     #[test]
     fn slow_ocr_keeps_only_latest_original_timestamp() {

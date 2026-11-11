@@ -421,8 +421,11 @@ impl SpeechRecognizer {
                     return Ok(Vec::new());
                 };
                 self.last_input_end_ms = Some(input_end_ms);
-                // The native feature extractor requires a stable input rate, even for silence.
-                self.samples.resize(sample_rate as usize / 2, 0.0);
+                // NeMo's 560 ms encoder advances over 650 ms windows. Half a second
+                // can leave the last word buffered at EOF; one second also covers
+                // delayed token emission across the next encoder step.
+                // Keep the original input rate and cap output times to real audio.
+                self.samples.resize(sample_rate as usize, 0.0);
                 stream.accept_waveform(sample_rate as i32, &self.samples);
                 self.samples.clear();
                 stream.input_finished();

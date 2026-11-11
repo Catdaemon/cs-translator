@@ -113,6 +113,53 @@ fn beam_search_preserves_short_callout_and_media_bounds() -> anyhow::Result<()> 
 }
 
 #[test]
+#[ignore = "Requires CS_TRANSLATOR_TEST_ASR and CS_TRANSLATOR_TEST_ANNOUNCER_AUDIO ('Terrorists win' without added trailing silence)"]
+fn eof_retains_announcer_final_word_across_encoder_alignment() -> anyhow::Result<()> {
+    let manifest = PathBuf::from(std::env::var_os("CS_TRANSLATOR_TEST_ASR").expect("ASR manifest"));
+    let path = PathBuf::from(
+        std::env::var_os("CS_TRANSLATOR_TEST_ANNOUNCER_AUDIO").expect("announcer recording"),
+    );
+    let (audio, rate) = read_wav(&path)?;
+    let mut asr = SpeechRecognizer::load(&manifest, 2, "auto", false)?;
+    for prefix_ms in [0, 193, 333] {
+        let mut waveform = vec![0.0; rate as usize * prefix_ms / 1000];
+        waveform.extend_from_slice(&audio);
+        let duration_ms = waveform.len() as u64 * 1000 / u64::from(rate);
+        let length = rate as usize / 100;
+        let mut finals = Vec::new();
+        for (index, samples) in waveform.chunks(length).enumerate() {
+            finals.extend(
+                asr.push(&AudioChunk {
+                    samples: samples.to_vec(),
+                    sample_rate: rate,
+                    timestamp_ms: (index * length) as u64 * 1000 / u64::from(rate),
+                    discontinuity: false,
+                })?
+                .into_iter()
+                .filter(|result| result.is_final),
+            );
+        }
+        finals.extend(asr.finish()?.into_iter().filter(|result| result.is_final));
+        let text = finals
+            .iter()
+            .map(|result| result.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(
+            canonical(&text),
+            "terroristswin",
+            "EOF alignment: {prefix_ms} ms"
+        );
+        assert!(
+            finals
+                .iter()
+                .all(|result| { result.start_ms < result.end_ms && result.end_ms <= duration_ms })
+        );
+    }
+    Ok(())
+}
+
+#[test]
 #[ignore = "Requires CS_TRANSLATOR_TEST_BOUNDARY_ASR (1-second Nemotron limit) and CS_TRANSLATOR_TEST_AUDIO (subsecond 48 kHz 'Behind you')"]
 fn phrase_limit_does_not_discard_buffered_callout_tail() -> anyhow::Result<()> {
     let manifest = PathBuf::from(

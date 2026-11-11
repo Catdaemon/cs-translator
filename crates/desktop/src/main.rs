@@ -18,8 +18,9 @@ use crossbeam_channel::{Receiver, Sender, bounded};
 use cs_core::{AppConfig, AppEvent, Caption};
 use cs_platform::GameSource;
 use gpui_kit::component::{
-    Theme, ThemeMode, TitleBar,
+    Theme, ThemeMode, TitleBar, WindowExt,
     message_scroller::MessageScrollerState,
+    notification::Notification,
     searchable_list::SearchableVec,
     select::{SelectEvent, SelectState},
 };
@@ -113,10 +114,9 @@ struct Desktop {
     settings_pages: std::cell::OnceCell<Vec<gpui_kit::component::setting::SettingPage>>,
     downloads: Option<downloads::Manager>,
     managed_models: bool,
-    speaker_status: Option<(String, bool)>,
     capture_totals: [u64; 5],
-    capture_notice: Option<(String, bool)>,
-    capture_border_warning: Option<String>,
+    download_errors: Vec<Option<String>>,
+    downloads_changed: bool,
     preparing_assets: bool,
     first_run: bool,
     assets_ready: bool,
@@ -138,7 +138,7 @@ struct Desktop {
     overlay: Option<WindowHandle<Overlay>>,
     license_browser: Option<AnyWindowHandle>,
     locked: bool,
-    messages: VecDeque<(String, bool)>,
+    pending_notifications: VecDeque<Notification>,
     started: Instant,
     exit_after: Option<f64>,
     shutdown: session::ShutdownWorkers,
@@ -175,9 +175,20 @@ fn observe(tx: Sender<UiResult>, shutdown: &session::ShutdownWorkers) {
 impl Desktop {
     fn message(&mut self, text: impl Into<String>, error: bool) {
         if error {
-            self.messages.push_front((text.into(), true));
-            self.messages.truncate(12);
+            self.notify(Notification::error(text.into()));
         }
+    }
+
+    fn warning(&mut self, text: impl Into<String>) {
+        self.notify(Notification::warning(text.into()));
+    }
+
+    fn notify(&mut self, notification: Notification) {
+        if self.pending_notifications.len() == 12 {
+            self.pending_notifications.pop_front();
+        }
+        self.pending_notifications
+            .push_back(notification.placement(gpui_kit::Anchor::BottomRight));
     }
 
     fn record_capture_diagnostics(&mut self, counts: [u64; 5]) {
@@ -192,7 +203,11 @@ impl Desktop {
             if audio != 0 {
                 text.push_str(" Lost audio starts a separate speech interval.");
             }
-            self.capture_notice = Some((text, audio != 0 || chat != 0));
+            if audio != 0 || chat != 0 {
+                self.message(text, true);
+            } else {
+                self.warning(text);
+            }
         }
     }
 
@@ -286,10 +301,7 @@ impl Desktop {
         self.player_languages.clear();
         self.language_editor_player = None;
         self.language_editor_valid = false;
-        self.speaker_status = None;
         self.capture_totals = [0; 5];
-        self.capture_notice = None;
-        self.capture_border_warning = None;
         self.overlay_feed.update(cx, |messages, cx| {
             messages.clear();
             cx.notify();
@@ -332,7 +344,6 @@ impl Desktop {
             self.message("Enable Voice translation first.", true);
         } else {
             self.config.hud_enabled = enabled;
-            self.speaker_status = None;
             self.inference_changed(cx);
         }
         cx.notify();
@@ -382,6 +393,31 @@ impl Desktop {
                 overlay.appearance = appearance;
                 cx.notify();
             });
+        }
+        cx.notify();
+    }
+
+    fn overlay_width_changed(&mut self, cx: &mut Context<Self>) {
+        self.save_pending = true;
+        if let Some(overlay) = self.overlay {
+            let width = self.config.overlay_width;
+            let result = overlay
+                .update(cx, |_, window, _| -> Result<()> {
+                    let handle = HasWindowHandle::window_handle(window)
+                        .map_err(|error| anyhow::anyhow!("Read overlay handle: {error:?}"))?
+                        .as_raw();
+                    match handle {
+                        RawWindowHandle::Win32(handle) => cs_platform::resize_overlay(
+                            handle.hwnd.get(),
+                            (width * window.scale_factor()).round() as i32,
+                        ),
+                        _ => anyhow::bail!("External overlay currently requires Windows"),
+                    }
+                })
+                .and_then(|result| result);
+            if let Err(error) = result {
+                self.message(format!("Resize overlay: {error:#}"), true);
+            }
         }
         cx.notify();
     }
@@ -460,6 +496,7 @@ impl Desktop {
                 }
             })();
             cx.new(|cx| {
+                let owner = desktop.clone();
                 let bounds_subscription = (!locked).then(|| {
                     cx.observe_window_bounds(window, move |_, window, cx| {
                         let source = Window::window_handle(window);
@@ -480,6 +517,7 @@ impl Desktop {
                     feed,
                     locked,
                     appearance,
+                    owner,
                     error: result.err().map(|e| format!("Overlay: {e:#}")),
                     _bounds_subscription: bounds_subscription,
                     _feed_subscription: feed_subscription,
@@ -509,15 +547,20 @@ impl Desktop {
             }
             Err(error) => self.message(format!("Open overlay: {error:#}"), true),
         }
+        if self.overlay.is_none() {
+            self.config.overlay_enabled = false;
+        }
     }
 
-    fn has_pending_events(&self) -> bool {
-        !self.rx.is_empty()
+    fn has_pending_events(&mut self) -> bool {
+        self.downloads_changed |= self
+            .downloads
+            .as_ref()
+            .is_some_and(|downloads| downloads.take_changed());
+        !self.pending_notifications.is_empty()
+            || !self.rx.is_empty()
             || !self.ui_rx.is_empty()
-            || self
-                .downloads
-                .as_ref()
-                .is_some_and(|downloads| downloads.take_changed())
+            || self.downloads_changed
             || (self.save_pending && !self.saving && !self.config_failed)
             || self
                 .exit_after
@@ -582,9 +625,30 @@ impl Desktop {
             match event {
                 AppEvent::Caption(caption) => {
                     if self.session.is_some() {
+                        let report_error =
+                            caption.translation_error.as_ref().is_some_and(|error| {
+                                self.captions
+                                    .iter()
+                                    .find(|previous| previous.id == caption.id)
+                                    .is_none_or(|previous| {
+                                        previous.translation_error.as_ref() != Some(error)
+                                    })
+                            });
                         let previous_len = self.captions.len();
                         let change = upsert(&mut self.captions, caption);
                         let len = self.captions.len();
+                        if report_error {
+                            let failed_caption = match change {
+                                CaptionChange::Added => self.captions.front(),
+                                CaptionChange::Updated(index) => self.captions.get(index),
+                                CaptionChange::Ignored => None,
+                            };
+                            if let Some(error) = failed_caption
+                                .and_then(|caption| caption.translation_error.as_ref())
+                            {
+                                self.message(format!("Translation failed: {error}"), true);
+                            }
+                        }
                         let overlay_index = match change {
                             CaptionChange::Added => Some(0),
                             CaptionChange::Updated(index) if index < 2 => Some(index),
@@ -619,11 +683,10 @@ impl Desktop {
                     is_error,
                 } => {
                     if component == "hud-border" {
-                        self.capture_border_warning = is_error.then_some(message);
-                    } else {
-                        if component.eq_ignore_ascii_case("hud") || component == "Replay HUD" {
-                            self.speaker_status = Some((message.clone(), is_error));
+                        if is_error {
+                            self.warning(message);
                         }
+                    } else {
                         if is_error {
                             self.message(format!("{component} · {message}"), true);
                         }
@@ -666,10 +729,12 @@ impl Desktop {
                                 .iter()
                                 .any(|l| l.code == self.config.target_language)
                             {
-                                self.asset_error = Some(format!(
-                                    "Saved output language '{}' is not supported. Choose a language below.",
+                                let error = format!(
+                                    "Saved output language '{}' is not supported. Choose a language in setup or Settings.",
                                     self.config.target_language
-                                ));
+                                );
+                                self.message(error.clone(), true);
+                                self.asset_error = Some(error);
                             }
                             let selected = languages
                                 .iter()
@@ -686,7 +751,13 @@ impl Desktop {
                             self.save_pending |= self.first_run;
                             self.first_run = false;
                         }
-                        Err(error) => self.asset_error = Some(error),
+                        Err(error) => {
+                            self.message(
+                                format!("{error} Check model files and retry setup."),
+                                true,
+                            );
+                            self.asset_error = Some(error);
+                        }
                     }
                 }
                 UiResult::Source(result) => match result {
@@ -711,7 +782,6 @@ impl Desktop {
                     match result {
                         Ok(()) => {
                             self.config_failed = false;
-                            self.messages.clear();
                         }
                         Err(error) => self.message(error, true),
                     }
@@ -744,6 +814,32 @@ impl Desktop {
             self.overlay(cx);
         }
         self.start_if_ready(cx);
+        if self.downloads_changed {
+            self.downloads_changed = false;
+            let download_errors: Vec<_> = self
+                .downloads
+                .iter()
+                .flat_map(|downloads| downloads.snapshots())
+                .map(|model| match model.state {
+                    downloads::State::Error(error) => Some(format!(
+                        "{}: {error}. Retry the model download in setup.",
+                        model.name
+                    )),
+                    _ => None,
+                })
+                .collect();
+            for (index, error) in download_errors.iter().enumerate() {
+                if let Some(error) = error
+                    && self.download_errors.get(index).and_then(Option::as_ref) != Some(error)
+                {
+                    self.message(error.clone(), true);
+                }
+            }
+            self.download_errors = download_errors;
+        }
+        while let Some(notification) = self.pending_notifications.pop_front() {
+            window.push_notification(notification, cx);
+        }
         self.save();
         if self
             .exit_after
@@ -1062,6 +1158,7 @@ struct Overlay {
     feed: Entity<OverlayMessages>,
     locked: bool,
     appearance: OverlayAppearance,
+    owner: WeakEntity<Desktop>,
     error: Option<String>,
     _bounds_subscription: Option<Subscription>,
     _feed_subscription: Subscription,
@@ -1117,8 +1214,10 @@ impl Render for Overlay {
                             cs_platform::begin_overlay_move(handle.hwnd.get())
                         })();
                         if let Err(error) = result {
-                            this.error = Some(format!("Move overlay: {error:#}"));
-                            cx.notify();
+                            let _ = this.owner.update(cx, |desktop, cx| {
+                                desktop.message(format!("Move overlay: {error:#}"), true);
+                                cx.notify();
+                            });
                         }
                     }),
                 )
@@ -1128,9 +1227,6 @@ impl Render for Overlay {
                         .text_color(rgb(0xe6ab45))
                         .child("Drag to position · Choose Done moving in Settings"),
                 );
-        }
-        if let Some(error) = &self.error {
-            root = root.child(div().p_2().bg(rgb(0x842f3f)).child(error.clone()));
         }
         for caption in self.feed.read(cx).captions(Instant::now()) {
             root = root.child(overlay_caption(caption, self.appearance));
@@ -1142,7 +1238,7 @@ impl Render for Overlay {
 fn place_overlay(config: &mut AppConfig, bounds: Bounds<Pixels>) {
     let width = f32::from(bounds.size.width);
     let height = f32::from(bounds.size.height);
-    config.overlay_width = 560f32.min((width - 40.).max(280.));
+    config.overlay_width = config.overlay_width.min((width - 40.).max(240.));
     config.overlay_height = 150f32.min((height - 80.).max(100.));
     config.overlay_x = f32::from(bounds.origin.x) + (width - config.overlay_width) / 2.;
     config.overlay_y = f32::from(bounds.origin.y) + height - config.overlay_height - 60.;
@@ -1179,7 +1275,9 @@ fn main() {
             Ok(config) => (config, None),
             Err(error) => (
                 AppConfig::default(),
-                Some(format!("Saved preferences could not be read: {error:#}")),
+                Some(format!(
+                    "Saved preferences could not be read: {error:#}. Use Restore defaults in Settings or setup to back up the file and recover."
+                )),
             ),
         }
     } else {
@@ -1377,10 +1475,9 @@ fn main() {
                             keyboard_focus: cx.focus_handle(),
                             settings_pages: std::cell::OnceCell::new(),
                             downloads,
-                            speaker_status: None,
                             capture_totals: [0; 5],
-                            capture_notice: None,
-                            capture_border_warning: None,
+                            download_errors: Vec::new(),
+                            downloads_changed: true,
                             managed_models: !explicit,
                             preparing_assets: false,
                             first_run,
@@ -1403,7 +1500,7 @@ fn main() {
                             overlay: None,
                             license_browser: None,
                             locked: true,
-                            messages: VecDeque::new(),
+                            pending_notifications: VecDeque::new(),
                             started: Instant::now(),
                             exit_after: args.exit_after,
                             shutdown: app_shutdown.clone(),
@@ -1488,6 +1585,25 @@ mod tests {
             translation_error: None,
             language: None,
             is_final,
+        }
+    }
+    #[test]
+    fn repositioned_overlay_keeps_selected_width_and_fits_display() {
+        for (selected_width, display_width, expected_width) in
+            [(320., 1280., 320.), (1200., 640., 600.)]
+        {
+            let bounds = Bounds::new(
+                point(px(-1280.), px(30.)),
+                size(px(display_width), px(720.)),
+            );
+            let mut config = AppConfig {
+                overlay_width: selected_width,
+                ..AppConfig::default()
+            };
+            place_overlay(&mut config, bounds);
+            assert_eq!(config.overlay_width, expected_width);
+            assert!(config.overlay_x >= -1280.);
+            assert!(config.overlay_x + config.overlay_width <= -1280. + display_width);
         }
     }
     #[test]

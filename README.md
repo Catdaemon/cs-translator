@@ -20,7 +20,7 @@ Live voice and text translation for Counter-Strike 2, powered by tiny AI models 
 
 - Choose the translation output language
 - Show or hide original text and message labels and adjust caption font size.
-- Tune the overlay's position, text size, transparency, and message lifetime.
+- Tune the overlay's width (240–1600 logical pixels), position, text size, transparency, and message lifetime. Width changes apply live and save automatically.
 - Optionally add speaker-name labels to voice captions.
 - Set CPU inference threads, background priority, optional speech beam search, translation decoding, and partial-update frequency.
 - Preview caption and overlay styling directly in Settings.
@@ -66,6 +66,6 @@ Third-party licenses, model terms, and package provenance are included with the 
 
 ## Releases
 
-GitHub Actions verifies Windows builds on branch pushes and pull requests. To publish a release, push a version tag matching `workspace.package.version` in `Cargo.toml`, such as `v0.1.2`. The release workflow can also be run manually for an existing version tag.
+GitHub Actions verifies Windows builds on branch pushes and pull requests. To publish a release, push a version tag matching `workspace.package.version` in `Cargo.toml`, such as `v0.1.3`. The release workflow can also be run manually for an existing version tag.
 
 Each release includes the Windows x64 ZIP and its SHA-256 checksum. The bundled Microsoft Visual C++ installer is hash- and signature-verified before packaging. Tests and packaging use the verified native runtimes independently of cached build outputs. Model weights are downloaded in the app, not bundled in releases.

@@ -74,7 +74,9 @@ pub use scheduling::{SessionProcess, configure_inference_process};
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub use windows::{begin_overlay_move, list_windows, make_overlay, spawn_audio, spawn_hud_capture};
+pub use windows::{
+    begin_overlay_move, list_windows, make_overlay, resize_overlay, spawn_audio, spawn_hud_capture,
+};
 #[cfg(windows)]
 mod discovery;
 #[cfg(windows)]
@@ -198,6 +200,10 @@ pub fn list_windows() -> Result<Vec<CaptureWindow>> {
 }
 #[cfg(not(windows))]
 pub fn make_overlay(_: isize, _: bool, _: (i32, i32)) -> Result<()> {
+    anyhow::bail!("Native overlay requires the Windows platform adapter")
+}
+#[cfg(not(windows))]
+pub fn resize_overlay(_: isize, _: i32) -> Result<()> {
     anyhow::bail!("Native overlay requires the Windows platform adapter")
 }
 #[cfg(not(windows))]

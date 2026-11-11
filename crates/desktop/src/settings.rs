@@ -1,6 +1,5 @@
 use super::*;
 use gpui_kit::component::{
-    alert::Alert,
     button::Button,
     form::{Field, Form},
     select::Select,
@@ -409,6 +408,9 @@ impl Desktop {
                     cx.notify();
                 }, cx))
             .item(position).item(movement)
+            .item(Self::settings_number("Overlay width (px)", "Width in logical pixels, from 240 to 1600. Changes apply immediately.",
+                NumberFieldOptions { min: 240., max: 1600., step: 20. }, |c| c.overlay_width as f64,
+                |c, v| c.overlay_width = v.round().clamp(240., 1600.) as f32, Self::overlay_width_changed, cx).keywords(["overlay", "width", "size", "narrow", "wide", "resize"]))
             .item(self.settings_toggle("Original text in overlay", "Include source text below translated overlay captions.", &["original", "source", "bilingual", "overlay"],
                 |c| c.overlay_show_original, |this, value, cx| { this.config.overlay_show_original = value; this.overlay_appearance_changed(cx); }, cx))
             .item(Self::settings_number("Overlay font size (px)", "Overlay caption text size, from 10 to 22 pixels.",
@@ -543,28 +545,20 @@ impl Desktop {
                     ))),
             )
             .child(div().flex_1().min_h_0().child(settings));
-        self.settings_errors(content, cx).into_any_element()
+        self.recovery_actions(content, cx).into_any_element()
     }
 
-    pub(super) fn settings_errors(&self, mut content: Div, cx: &Context<Self>) -> Div {
-        if let Some(error) = &self.asset_error {
-            content = content.child(Alert::error("asset-error", error.clone()));
-        }
-        if let Some((message, error)) = &self.capture_notice {
-            content = content.child(if *error {
-                Alert::error("capture-loss", message.clone())
-            } else {
-                Alert::warning("capture-loss", message.clone())
-            });
-        }
-        if let Some(message) = &self.capture_border_warning {
-            content = content.child(Alert::warning("capture-border", message.clone()));
-        }
-        if let Some((error, true)) = &self.speaker_status {
-            content = content.child(Alert::error("speaker-error", error.clone()));
-        }
-        if let Some((message, _)) = self.messages.iter().find(|(_, error)| *error) {
-            content = content.child(Alert::error("runtime-error", message.clone()));
+    pub(super) fn recovery_actions(&self, mut content: Div, cx: &Context<Self>) -> Div {
+        if self.asset_error.is_some() {
+            content = content.child(
+                Button::new("retry-model-preparation")
+                    .label("Retry model preparation")
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.asset_error = None;
+                        this.prepare_assets();
+                        cx.notify();
+                    })),
+            );
         }
         if self.config_failed {
             content = content.child(
